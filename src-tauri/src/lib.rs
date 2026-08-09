@@ -21,8 +21,9 @@ async fn run_path_update(app_handle: tauri::AppHandle) {
         .json::<serde_json::Value>()
         .await
         .unwrap();
-    let release_version = res.get("name").unwrap().as_str().unwrap();
-    // Download the zip file temporarily then extract the relevant qsvp file (we use qsvp instead of qsv for the broadest compatibility)
+    // Use tag_name, not name: only tag_name is guaranteed to match the download URL path
+    let release_version = res.get("tag_name").unwrap().as_str().unwrap();
+    // Download the zip file temporarily then extract qsv.exe
     let zip_download_url = format!("https://github.com/dathere/qsv/releases/download/{release_version}/qsv-{release_version}-x86_64-pc-windows-msvc.zip");
     let mut temp_zip_file = tempfile().unwrap();
     let zip_bytes = reqwest::get(zip_download_url)
@@ -31,15 +32,15 @@ async fn run_path_update(app_handle: tauri::AppHandle) {
         .bytes().await.unwrap();
     temp_zip_file.write_all(&zip_bytes).unwrap();
     let mut zip = zip::ZipArchive::new(temp_zip_file).unwrap();
-    let mut qsvp = zip.by_name("qsvp.exe").unwrap();
+    let mut qsv = zip.by_name("qsv.exe").unwrap();
     // Create a bin folder in app_local_data_dir if it doesn't exist
     let bin_dir = app_local_data_dir.join("bin");
     if !std::path::Path::exists(&bin_dir) {
         std::fs::create_dir(&bin_dir).unwrap();
     }
-    // Write qsvp.exe to bin/qsv.exe
+    // Write qsv.exe to bin/qsv.exe
     let mut qsv_file = std::fs::File::create(bin_dir.join("qsv.exe")).unwrap();
-    std::io::copy(&mut qsvp, &mut qsv_file).unwrap();
+    std::io::copy(&mut qsv, &mut qsv_file).unwrap();
     drop(qsv_file);
     // Add the bin dir to PATH
     let bin_dir_str = bin_dir.to_str().unwrap();
